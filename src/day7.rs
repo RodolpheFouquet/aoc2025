@@ -34,6 +34,7 @@ mod day7 {
         pub width: usize,
         pub height: usize,
         pub data: Vec<Cell>,
+        pub state: Vec<u64>,
     }
 
     impl Into<String> for Grid {
@@ -41,12 +42,22 @@ mod day7 {
             let mut ret: String = "".to_owned();
             for j in 0..self.height - 1 {
                 for i in 0..self.width {
-                    ret.push(self.data[j * self.width + i].into());
+                    let idx = j * self.width + i;
+                    if self.state[idx] == 0 {
+                        ret.push(self.data[idx].into());
+                    } else {
+                        ret.push_str(format!("{:X}", self.state[idx]).as_str());
+                    }
                 }
                 ret.push('\n');
             }
             for i in 0..self.width {
-                ret.push(self.data[(self.height - 1) * self.width + i].into());
+                let idx = (self.height - 1) * self.width + i;
+                if self.state[idx] == 0 {
+                    ret.push(self.data[idx].into());
+                } else {
+                    ret.push_str(format!("{:X}", self.state[idx]).as_str());
+                }
             }
             ret
         }
@@ -61,6 +72,7 @@ mod day7 {
             Self {
                 width,
                 height,
+                state: vec![0; width * height],
                 data: lines
                     .iter()
                     .flat_map(|&line| line.chars().map(|c| Cell::from(c)).collect::<Vec<Cell>>())
@@ -73,7 +85,6 @@ mod day7 {
         let mut grid = Grid::from(input.as_str());
         let mut split_count = 0;
         for j in 0..grid.height - 1 {
-            // println!("processing line {}", j);
             // find source or beams below
             for i in 0..grid.width {
                 if grid.data[j * grid.width + i] == Cell::Source {
@@ -95,14 +106,42 @@ mod day7 {
                     grid.data[(j + 1) * grid.width + i] = Cell::Beam
                 }
             }
-            // let s: String = grid.clone().into();
-            // println!("{}", s);
         }
         split_count
     }
 
     pub fn part2(input: String) -> u64 {
-        0
+        let mut grid = Grid::from(input.as_str());
+        for j in 0..grid.height - 1 {
+            // find source or beams below
+            for i in 0..grid.width {
+                if grid.data[j * grid.width + i] == Cell::Source {
+                    grid.state[j * grid.width + i] = 1;
+                    grid.data[(j + 1) * grid.width + i] = Cell::Beam;
+                    grid.state[(j + 1) * grid.width + i] += 1;
+                } else if grid.data[j * grid.width + i] == Cell::Beam
+                    && grid.data[(j + 1) * grid.width + i] == Cell::Splitter
+                {
+                    if i > 0 {
+                        grid.data[(j + 1) * grid.width + i - 1] = Cell::Beam;
+                        grid.state[(j + 1) * grid.width + i - 1] += grid.state[j * grid.width + i];
+                    }
+                    if i < grid.width - 1 {
+                        grid.data[(j + 1) * grid.width + i + 1] = Cell::Beam;
+                        grid.state[(j + 1) * grid.width + i + 1] += grid.state[j * grid.width + i];
+                    }
+                } else if grid.data[j * grid.width + i] == Cell::Beam {
+                    grid.data[(j + 1) * grid.width + i] = Cell::Beam;
+                    grid.state[(j + 1) * grid.width + i] += grid.state[j * grid.width + i];
+                }
+            }
+        }
+        let mut x = 0;
+
+        for i in 0..grid.width {
+            x += grid.state[(grid.height - 1) * grid.width + i];
+        }
+        x
     }
 }
 
@@ -119,6 +158,7 @@ mod tests {
             day7::Grid {
                 width: 2,
                 height: 2,
+                state: vec![0, 0, 0, 0],
                 data: vec![
                     day7::Cell::Beam,
                     day7::Cell::Splitter,
@@ -144,10 +184,11 @@ mod tests {
 
     #[test]
     fn test_part2() {
-        // let input =
-        // fs::read_to_string("assets/day1_test.txt").expect("day1.txt should have been read");
-        // assert_eq!(day1::part2(input.into()), Ok(6));
-        // let file = fs::read_to_string("assets/day1.txt").expect("day1.txt should have been read");
-        // assert_eq!(day1::part2(file), Ok(6106));
+        let input = fs::read_to_string("assets/day7_test.txt")
+            .expect("day7_test.txt should have been read");
+
+        assert_eq!(day7::part2(input.into()), 40);
+        let file = fs::read_to_string("assets/day7.txt").expect("day7.txt should have been read");
+        assert_eq!(day7::part2(file), 4509723641302);
     }
 }
